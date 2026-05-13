@@ -1,0 +1,26 @@
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: tsa-wmq-n8n
+    restart: unless-stopped
+    ports:
+      - "${N8N_PORT:-5678}:5678"
+    environment:
+      - TZ=America/Fortaleza
+      - GENERIC_TIMEZONE=America/Fortaleza
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - NODE_FUNCTION_ALLOW_BUILTIN=crypto
+      - TUYA_ENDPOINT=${TUYA_ENDPOINT}
+      - TUYA_CLIENT_ID=${TUYA_CLIENT_ID}
+      - TUYA_CLIENT_SECRET=${TUYA_CLIENT_SECRET}
+      - TUYA_DEVICE_ID=${TUYA_DEVICE_ID}
+      - INGEST_URL=${INGEST_URL}
+      - INGEST_SECRET=${INGEST_SECRET}
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+volumes:
+  n8n_data:

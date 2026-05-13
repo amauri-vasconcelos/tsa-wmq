@@ -2,7 +2,25 @@
 
 Este caminho usa n8n local/self-hosted para ficar sem custo recorrente no n8n.
 
-## 1. Rodar n8n local
+## Opcao recomendada: Docker
+
+Use a configuracao pronta em `n8n/docker-compose.yml`.
+
+```powershell
+cd C:\VSC\TSA_WMQ\n8n
+copy .env.example .env
+docker compose up -d
+```
+
+Depois abra:
+
+```txt
+http://localhost:5678
+```
+
+## Opcao alternativa: npx
+
+### 1. Rodar n8n local
 
 No PowerShell:
 
