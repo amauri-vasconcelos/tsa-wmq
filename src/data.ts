@@ -1,4 +1,72 @@
-import type { MetricStatus, WaterReading } from "./types";
+import type {
+  AlertLevel,
+  AlertLimits,
+  EventRecord,
+  MetricKey,
+  MetricStatus,
+  WaterReading,
+} from "./types";
+
+export const metricConfig: Record<
+  MetricKey,
+  {
+    label: string;
+    unit: string;
+    color: string;
+    decimals: number;
+    limits: AlertLimits;
+  }
+> = {
+  ph: {
+    label: "pH",
+    unit: "",
+    color: "#116466",
+    decimals: 2,
+    limits: { lowLow: 6.5, low: 6.9, high: 7.35, highHigh: 7.55 },
+  },
+  ec: {
+    label: "EC",
+    unit: "mS/cm",
+    color: "#2067a8",
+    decimals: 2,
+    limits: { lowLow: 0.12, low: 0.2, high: 0.3, highHigh: 0.36 },
+  },
+  cf: {
+    label: "CF",
+    unit: "",
+    color: "#2f8a5f",
+    decimals: 1,
+    limits: { lowLow: 1.2, low: 2, high: 3, highHigh: 3.6 },
+  },
+  tds: {
+    label: "TDS",
+    unit: "ppm",
+    color: "#6f4aa8",
+    decimals: 0,
+    limits: { lowLow: 60, low: 100, high: 150, highHigh: 180 },
+  },
+  orp: {
+    label: "ORP",
+    unit: "mV",
+    color: "#b24b2d",
+    decimals: 0,
+    limits: { lowLow: 210, low: 250, high: 310, highHigh: 340 },
+  },
+  humidity: {
+    label: "Humidity",
+    unit: "%",
+    color: "#1c7c82",
+    decimals: 1,
+    limits: { lowLow: 40, low: 50, high: 68, highHigh: 74 },
+  },
+  temperature: {
+    label: "Temp",
+    unit: "C",
+    color: "#d64b35",
+    decimals: 1,
+    limits: { lowLow: 18, low: 22, high: 27.5, highHigh: 29 },
+  },
+};
 
 const referenceDate = new Date("2026-05-12T13:00:00-03:00");
 
@@ -29,30 +97,58 @@ export const readings: WaterReading[] = Array.from({ length: 365 }, (_, index) =
 });
 
 export function getMetricStatus(
-  metric: "ph" | "tds" | "temperature" | "humidity",
+  metric: MetricKey,
   value: number,
 ): MetricStatus {
-  if (metric === "ph") {
-    if (value < 6.5 || value > 8.5) return "danger";
-    if (value < 6.8 || value > 8.2) return "warning";
-    return "ok";
-  }
-
-  if (metric === "tds") {
-    if (value > 500) return "danger";
-    if (value > 300) return "warning";
-    return "ok";
-  }
-
-  if (metric === "humidity") {
-    if (value < 35 || value > 85) return "danger";
-    if (value < 45 || value > 75) return "warning";
-    return "ok";
-  }
-
-  if (value < 18 || value > 32) return "danger";
-  if (value < 22 || value > 29) return "warning";
+  const level = getAlertLevel(metric, value);
+  if (level === "LowLow" || level === "HighHigh") return "danger";
+  if (level === "Low" || level === "High") return "warning";
   return "ok";
+}
+
+export function getAlertLevel(metric: MetricKey, value: number): AlertLevel {
+  const limits = metricConfig[metric].limits;
+
+  if (value <= limits.lowLow) return "LowLow";
+  if (value < limits.low) return "Low";
+  if (value >= limits.highHigh) return "HighHigh";
+  if (value > limits.high) return "High";
+  return "Normal";
+}
+
+export function formatMetricValue(metric: MetricKey, value: number) {
+  const config = metricConfig[metric];
+  return value.toFixed(config.decimals);
+}
+
+export function getReadingValue(reading: WaterReading, metric: MetricKey) {
+  return reading[metric];
+}
+
+export function buildEvents(sourceReadings: WaterReading[]): EventRecord[] {
+  const events: EventRecord[] = [];
+
+  sourceReadings.forEach((reading) => {
+    (Object.keys(metricConfig) as MetricKey[]).forEach((metric) => {
+      const value = getReadingValue(reading, metric);
+      const config = metricConfig[metric];
+      const level = getAlertLevel(metric, value);
+
+      if (level === "Normal") return;
+
+      events.push({
+        id: `${reading.id}-${metric}-${level}`,
+        timestamp: reading.timestamp,
+        metric: config.label,
+        level,
+        value,
+        unit: config.unit,
+        message: `${config.label} em ${level}`,
+      });
+    });
+  });
+
+  return events.reverse();
 }
 
 export function formatTime(timestamp: string) {

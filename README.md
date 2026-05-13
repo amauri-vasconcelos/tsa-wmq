@@ -54,6 +54,11 @@ Schedule Trigger
 
 Guarde `Access ID`, `Access Secret` e `Device ID` no n8n, nunca no frontend.
 
+## Alarmes
+
+Os limites LowLow, Low, High e HighHigh ficam em `src/data.ts`, no objeto `metricConfig`.
+Edite os valores de `limits` para ajustar os alarmes de cada dado historizado.
+
 ## Vercel
 
 1. Suba este projeto para um repositorio no GitHub.

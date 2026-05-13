@@ -22,9 +22,16 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { readings, formatDate, formatTime, getMetricStatus } from "./data";
+import {
+  buildEvents,
+  formatDate,
+  formatTime,
+  getMetricStatus,
+  metricConfig,
+  readings,
+} from "./data";
 import { hasFirebaseConfig } from "./firebase";
-import type { MetricStatus, WaterReading } from "./types";
+import type { EventRecord, MetricKey, MetricStatus, WaterReading } from "./types";
 
 const latest = readings[readings.length - 1];
 const periodOptions = [
@@ -33,6 +40,8 @@ const periodOptions = [
   { label: "1 mes", days: 30 },
   { label: "1 ano", days: 365 },
 ];
+const metricKeys = Object.keys(metricConfig) as MetricKey[];
+const defaultChartMetrics: MetricKey[] = ["ph", "tds", "temperature"];
 
 function statusLabel(status: MetricStatus) {
   if (status === "danger") return "Critico";
@@ -83,8 +92,29 @@ function ReadingRow({ reading }: { reading: WaterReading }) {
   );
 }
 
+function EventRow({ event }: { event: EventRecord }) {
+  return (
+    <tr>
+      <td>{formatDate(event.timestamp)}</td>
+      <td>{event.metric}</td>
+      <td>
+        <span className={`event-level ${event.level.toLowerCase()}`}>
+          {event.level}
+        </span>
+      </td>
+      <td>
+        {event.value}
+        {event.unit && ` ${event.unit}`}
+      </td>
+      <td>{event.message}</td>
+    </tr>
+  );
+}
+
 export function App() {
   const [selectedDays, setSelectedDays] = useState(7);
+  const [activeMetrics, setActiveMetrics] =
+    useState<MetricKey[]>(defaultChartMetrics);
   const chartData = useMemo(() => {
     const selectedReadings = readings.slice(-selectedDays);
 
@@ -94,10 +124,31 @@ export function App() {
           ? formatTime(reading.timestamp)
           : formatDate(reading.timestamp),
       ph: reading.ph,
+      ec: reading.ec,
+      cf: reading.cf,
       tds: reading.tds,
+      orp: reading.orp,
+      humidity: reading.humidity,
       temperature: reading.temperature,
     }));
   }, [selectedDays]);
+  const events = useMemo(() => buildEvents(readings).slice(0, 20), []);
+
+  function toggleChartMetric(metric: MetricKey) {
+    setActiveMetrics((currentMetrics) => {
+      const isActive = currentMetrics.includes(metric);
+
+      if (isActive && currentMetrics.length === 1) {
+        return currentMetrics;
+      }
+
+      if (isActive) {
+        return currentMetrics.filter((currentMetric) => currentMetric !== metric);
+      }
+
+      return [...currentMetrics, metric];
+    });
+  }
 
   return (
     <main>
@@ -134,13 +185,13 @@ export function App() {
           label="EC"
           value={latest.ec.toFixed(2)}
           unit="mS/cm"
-          status="ok"
+          status={getMetricStatus("ec", latest.ec)}
         />
         <MetricCard
           icon={<Waves size={22} />}
           label="CF"
           value={latest.cf.toFixed(1)}
-          status="ok"
+          status={getMetricStatus("cf", latest.cf)}
         />
         <MetricCard
           icon={<Gauge size={22} />}
@@ -154,7 +205,7 @@ export function App() {
           label="ORP"
           value={String(latest.orp)}
           unit="mV"
-          status="ok"
+          status={getMetricStatus("orp", latest.orp)}
         />
         <MetricCard
           icon={<Percent size={22} />}
@@ -198,6 +249,28 @@ export function App() {
               </span>
             </div>
           </div>
+          <div className="chart-legend" aria-label="Dados exibidos no grafico">
+            {metricKeys.map((metric) => {
+              const config = metricConfig[metric];
+              const checked = activeMetrics.includes(metric);
+
+              return (
+                <button
+                  key={metric}
+                  type="button"
+                  className={checked ? "legend-item active" : "legend-item"}
+                  onClick={() => toggleChartMetric(metric)}
+                  aria-pressed={checked}
+                >
+                  <span
+                    className="legend-color"
+                    style={{ backgroundColor: config.color }}
+                  />
+                  {config.label}
+                </button>
+              );
+            })}
+          </div>
           <div className="chart-wrap">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
@@ -208,30 +281,17 @@ export function App() {
                 <XAxis dataKey="time" tickLine={false} axisLine={false} />
                 <YAxis tickLine={false} axisLine={false} width={34} />
                 <Tooltip />
-                <Line
-                  type="monotone"
-                  dataKey="ph"
-                  name="pH"
-                  stroke="#116466"
-                  strokeWidth={3}
-                  dot={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="tds"
-                  name="TDS"
-                  stroke="#6f4aa8"
-                  strokeWidth={2}
-                  dot={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="temperature"
-                  name="Temp."
-                  stroke="#d64b35"
-                  strokeWidth={3}
-                  dot={false}
-                />
+                {activeMetrics.map((metric) => (
+                  <Line
+                    key={metric}
+                    type="monotone"
+                    dataKey={metric}
+                    name={metricConfig[metric].label}
+                    stroke={metricConfig[metric].color}
+                    strokeWidth={metric === "ph" || metric === "temperature" ? 3 : 2}
+                    dot={false}
+                  />
+                ))}
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -246,18 +306,20 @@ export function App() {
             <AlertTriangle size={20} />
           </div>
           <ul className="alert-list">
-            <li>
-              <strong>pH ideal</strong>
-              <span>6.8 a 8.2</span>
-            </li>
-            <li>
-              <strong>TDS em atencao</strong>
-              <span>Acima de 300 ppm</span>
-            </li>
-            <li>
-              <strong>Temperatura</strong>
-              <span>22 C a 29 C</span>
-            </li>
+            {metricKeys.slice(0, 4).map((metric) => {
+              const config = metricConfig[metric];
+              const limits = config.limits;
+
+              return (
+                <li key={metric}>
+                  <strong>{config.label}</strong>
+                  <span>
+                    LL {limits.lowLow} | L {limits.low} | H {limits.high} | HH{" "}
+                    {limits.highHigh}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         </aside>
       </section>
@@ -290,6 +352,33 @@ export function App() {
                 .map((reading) => (
                   <ReadingRow key={reading.id} reading={reading} />
                 ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <span className="eyebrow">Eventos</span>
+            <h2>Eventos ocorridos</h2>
+          </div>
+        </div>
+        <div className="table-wrap">
+          <table className="events-table">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Dado</th>
+                <th>Evento</th>
+                <th>Valor</th>
+                <th>Mensagem</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map((event) => (
+                <EventRow key={event.id} event={event} />
+              ))}
             </tbody>
           </table>
         </div>
