@@ -8,6 +8,7 @@ import {
   RadioTower,
   Thermometer,
 } from "lucide-react";
+import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
   CartesianGrid,
@@ -18,22 +19,21 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { readings, formatTime, getMetricStatus } from "./data";
+import { readings, formatDate, formatTime, getMetricStatus } from "./data";
 import { hasFirebaseConfig } from "./firebase";
 import type { MetricStatus, WaterReading } from "./types";
 
 const latest = readings[readings.length - 1];
-
-const chartData = readings.map((reading) => ({
-  time: formatTime(reading.timestamp),
-  ph: reading.ph,
-  tds: reading.tds,
-  temperature: reading.temperature,
-}));
+const periodOptions = [
+  { label: "1 dia", days: 1 },
+  { label: "1 semana", days: 7 },
+  { label: "1 mes", days: 30 },
+  { label: "1 ano", days: 365 },
+];
 
 function statusLabel(status: MetricStatus) {
-  if (status === "danger") return "Crítico";
-  if (status === "warning") return "Atenção";
+  if (status === "danger") return "Critico";
+  if (status === "warning") return "Atencao";
   return "Normal";
 }
 
@@ -68,7 +68,7 @@ function MetricCard({
 function ReadingRow({ reading }: { reading: WaterReading }) {
   return (
     <tr>
-      <td>{formatTime(reading.timestamp)}</td>
+      <td>{formatDate(reading.timestamp)}</td>
       <td>{reading.ph.toFixed(2)}</td>
       <td>{reading.tds}</td>
       <td>{reading.ec}</td>
@@ -79,18 +79,33 @@ function ReadingRow({ reading }: { reading: WaterReading }) {
 }
 
 export function App() {
+  const [selectedDays, setSelectedDays] = useState(7);
+  const chartData = useMemo(() => {
+    const selectedReadings = readings.slice(-selectedDays);
+
+    return selectedReadings.map((reading) => ({
+      time:
+        selectedDays === 1
+          ? formatTime(reading.timestamp)
+          : formatDate(reading.timestamp),
+      ph: reading.ph,
+      tds: reading.tds,
+      temperature: reading.temperature,
+    }));
+  }, [selectedDays]);
+
   return (
     <main>
       <header className="app-header">
         <div>
           <span className="eyebrow">TSA Water Monitoring</span>
-          <h1>Qualidade da água</h1>
+          <h1>Qualidade da agua</h1>
           <p>
-            Painel inicial para o sensor YINMIK via Tuya, com histórico pronto
+            Painel inicial para o sensor YINMIK via Tuya, com historico pronto
             para receber dados do n8n no Firebase.
           </p>
         </div>
-        <div className="connection-panel" aria-label="Estado das integrações">
+        <div className="connection-panel" aria-label="Estado das integracoes">
           <span>
             <RadioTower size={18} />
             Tuya via n8n
@@ -136,23 +151,54 @@ export function App() {
         <article className="panel chart-panel">
           <div className="panel-heading">
             <div>
-              <span className="eyebrow">Hoje</span>
-              <h2>Histórico por hora</h2>
+              <span className="eyebrow">Historico</span>
+              <h2>Leituras por periodo</h2>
             </div>
-            <span className="healthy">
-              <CheckCircle2 size={18} />
-              Operação normal
-            </span>
+            <div className="chart-actions">
+              <div className="period-tabs" aria-label="Periodo do grafico">
+                {periodOptions.map((option) => (
+                  <button
+                    key={option.days}
+                    type="button"
+                    className={selectedDays === option.days ? "active" : ""}
+                    onClick={() => setSelectedDays(option.days)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <span className="healthy">
+                <CheckCircle2 size={18} />
+                Operacao normal
+              </span>
+            </div>
           </div>
           <div className="chart-wrap">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 12, right: 18, left: 0, bottom: 0 }}>
+              <LineChart
+                data={chartData}
+                margin={{ top: 12, right: 18, left: 0, bottom: 0 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke="#d8e1df" />
                 <XAxis dataKey="time" tickLine={false} axisLine={false} />
                 <YAxis tickLine={false} axisLine={false} width={34} />
                 <Tooltip />
-                <Line type="monotone" dataKey="ph" name="pH" stroke="#116466" strokeWidth={3} dot={false} />
-                <Line type="monotone" dataKey="temperature" name="Temp." stroke="#d64b35" strokeWidth={3} dot={false} />
+                <Line
+                  type="monotone"
+                  dataKey="ph"
+                  name="pH"
+                  stroke="#116466"
+                  strokeWidth={3}
+                  dot={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="temperature"
+                  name="Temp."
+                  stroke="#d64b35"
+                  strokeWidth={3}
+                  dot={false}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -172,7 +218,7 @@ export function App() {
               <span>6.8 a 8.2</span>
             </li>
             <li>
-              <strong>TDS em atenção</strong>
+              <strong>TDS em atencao</strong>
               <span>Acima de 300 ppm</span>
             </li>
             <li>
@@ -194,7 +240,7 @@ export function App() {
           <table>
             <thead>
               <tr>
-                <th>Hora</th>
+                <th>Data</th>
                 <th>pH</th>
                 <th>TDS</th>
                 <th>EC</th>
@@ -204,7 +250,7 @@ export function App() {
             </thead>
             <tbody>
               {readings
-                .slice()
+                .slice(-10)
                 .reverse()
                 .map((reading) => (
                   <ReadingRow key={reading.id} reading={reading} />

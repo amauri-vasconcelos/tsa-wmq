@@ -223,6 +223,48 @@ h2 {
   font-weight: 800;
 }
 
+.chart-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.period-tabs {
+  display: inline-grid;
+  grid-template-columns: repeat(4, minmax(76px, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #d8e1df;
+  border-radius: 8px;
+  background: #f6f8f3;
+}
+
+.period-tabs button {
+  min-height: 36px;
+  border: 0;
+  border-radius: 6px;
+  color: #405853;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.period-tabs button:hover,
+.period-tabs button:focus-visible {
+  color: #116466;
+  outline: 2px solid #9ecbc2;
+  outline-offset: 1px;
+}
+
+.period-tabs button.active {
+  color: #ffffff;
+  background: #116466;
+  box-shadow: 0 8px 18px rgba(17, 100, 102, 0.18);
+}
+
 .chart-wrap {
   height: 330px;
 }
@@ -313,6 +355,15 @@ tr:last-child td {
   .panel-heading {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .chart-actions,
+  .period-tabs {
+    width: 100%;
+  }
+
+  .period-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .chart-wrap {
