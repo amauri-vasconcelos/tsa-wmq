@@ -217,6 +217,13 @@ h2 {
   align-items: flex-start;
 }
 
+.panel-note {
+  margin-top: 8px;
+  color: #9d241d;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
 .healthy {
   color: #0b6b4c;
   font-size: 0.9rem;

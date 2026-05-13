@@ -1,0 +1,48 @@
+{
+  "id": "96f18424-b09a-4dfb-8c6b-f1f9f40e4d45",
+  "name": "Simular leitura para Firebase",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-simulated-reading",
+      "name": "Executar manualmente",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        260,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// n8n Code node\n// Mode: Run Once for All Items\n// Requires self-hosted n8n with NODE_FUNCTION_ALLOW_BUILTIN=https\n\nconst https = require(\"https\");\n\nconst config = {\n  ingestUrl: $env.INGEST_URL,\n  ingestSecret: $env.INGEST_SECRET,\n};\n\nfunction requireConfig() {\n  Object.entries(config).forEach(([key, value]) => {\n    if (!value) {\n      throw new Error(`Missing environment variable: ${key}`);\n    }\n  });\n}\n\nfunction requestJson(url, { method = \"GET\", headers = {}, body = \"\" } = {}) {\n  return new Promise((resolve, reject) => {\n    const request = https.request(url, { method, headers }, (response) => {\n      let responseBody = \"\";\n\n      response.on(\"data\", (chunk) => {\n        responseBody += chunk;\n      });\n\n      response.on(\"end\", () => {\n        let data = {};\n\n        try {\n          data = responseBody ? JSON.parse(responseBody) : {};\n        } catch (error) {\n          reject(new Error(`Invalid JSON response from ${url}: ${responseBody}`));\n          return;\n        }\n\n        resolve({\n          ok: response.statusCode >= 200 && response.statusCode < 300,\n          statusCode: response.statusCode,\n          data,\n        });\n      });\n    });\n\n    request.on(\"error\", reject);\n\n    if (body) {\n      request.write(body);\n    }\n\n    request.end();\n  });\n}\n\nfunction createSimulatedReading() {\n  const now = new Date();\n  const minuteWave = Math.sin(now.getMinutes() / 60 * Math.PI * 2);\n\n  return {\n    deviceId: \"tuya-yinmik-simulado\",\n    timestamp: now.toISOString(),\n    ph: Number((6.9 + minuteWave * 0.25).toFixed(2)),\n    ec: Number((0.82 + minuteWave * 0.08).toFixed(2)),\n    cf: Number((8.2 + minuteWave * 0.8).toFixed(1)),\n    tds: Math.round(410 + minuteWave * 35),\n    orp: Math.round(285 + minuteWave * 18),\n    humidity: Number((62 + minuteWave * 4).toFixed(1)),\n    temperature: Number((25.4 + minuteWave * 1.2).toFixed(1)),\n    source: \"n8n-simulation\",\n    raw: {\n      simulated: true,\n      note: \"Manual n8n ingest test\",\n    },\n  };\n}\n\nasync function sendToIngest(reading) {\n  const body = JSON.stringify(reading);\n  const response = await requestJson(config.ingestUrl, {\n    method: \"POST\",\n    headers: {\n      \"content-type\": \"application/json\",\n      \"content-length\": Buffer.byteLength(body).toString(),\n      \"x-ingest-secret\": config.ingestSecret,\n    },\n    body,\n  });\n\n  if (!response.ok || response.data.ok === false) {\n    throw new Error(`Ingest API error: ${JSON.stringify(response.data)}`);\n  }\n\n  return response.data;\n}\n\nrequireConfig();\n\nconst reading = createSimulatedReading();\nconst ingestResponse = await sendToIngest(reading);\n\nreturn [\n  {\n    json: {\n      ok: true,\n      reading,\n      ingestResponse,\n    },\n  },\n];\n"
+      },
+      "id": "code-simulated-ingest",
+      "name": "Enviar leitura simulada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Executar manualmente": {
+      "main": [
+        [
+          {
+            "node": "Enviar leitura simulada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

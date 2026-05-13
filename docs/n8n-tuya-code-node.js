@@ -1,8 +1,9 @@
 // n8n Code node
 // Mode: Run Once for All Items
-// Requires self-hosted n8n with NODE_FUNCTION_ALLOW_BUILTIN=crypto
+// Requires self-hosted n8n with NODE_FUNCTION_ALLOW_BUILTIN=crypto,https
 
 const crypto = require("crypto");
+const https = require("https");
 
 const config = {
   tuyaEndpoint: $env.TUYA_ENDPOINT,
@@ -61,13 +62,50 @@ function buildTuyaHeaders({ method, pathWithQuery, accessToken, body = "" }) {
   };
 }
 
+function requestJson(url, { method = "GET", headers = {}, body = "" } = {}) {
+  return new Promise((resolve, reject) => {
+    const request = https.request(url, { method, headers }, (response) => {
+      let responseBody = "";
+
+      response.on("data", (chunk) => {
+        responseBody += chunk;
+      });
+
+      response.on("end", () => {
+        let data = {};
+
+        try {
+          data = responseBody ? JSON.parse(responseBody) : {};
+        } catch (error) {
+          reject(new Error(`Invalid JSON response from ${url}: ${responseBody}`));
+          return;
+        }
+
+        resolve({
+          ok: response.statusCode >= 200 && response.statusCode < 300,
+          statusCode: response.statusCode,
+          data,
+        });
+      });
+    });
+
+    request.on("error", reject);
+
+    if (body) {
+      request.write(body);
+    }
+
+    request.end();
+  });
+}
+
 async function tuyaRequest(method, pathWithQuery, accessToken) {
   const headers = buildTuyaHeaders({ method, pathWithQuery, accessToken });
-  const response = await fetch(`${config.tuyaEndpoint}${pathWithQuery}`, {
+  const response = await requestJson(`${config.tuyaEndpoint}${pathWithQuery}`, {
     method,
     headers,
   });
-  const data = await response.json();
+  const data = response.data;
 
   if (!response.ok || data.success === false) {
     throw new Error(`Tuya API error: ${JSON.stringify(data)}`);
@@ -105,15 +143,17 @@ function normalizeStatus(statusList) {
 }
 
 async function sendToIngest(reading) {
-  const response = await fetch(config.ingestUrl, {
+  const body = JSON.stringify(reading);
+  const response = await requestJson(config.ingestUrl, {
     method: "POST",
     headers: {
       "content-type": "application/json",
+      "content-length": Buffer.byteLength(body).toString(),
       "x-ingest-secret": config.ingestSecret,
     },
-    body: JSON.stringify(reading),
+    body,
   });
-  const data = await response.json();
+  const data = response.data;
 
   if (!response.ok || data.ok === false) {
     throw new Error(`Ingest API error: ${JSON.stringify(data)}`);

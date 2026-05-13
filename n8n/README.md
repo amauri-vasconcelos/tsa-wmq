@@ -67,7 +67,16 @@ Os dados do n8n ficam no volume Docker `n8n_data`.
 
 ## 6. Criar workflow
 
-No n8n:
+Gere o workflow importavel:
+
+```powershell
+cd C:\VSC\TSA_WMQ\n8n
+node .\build-tuya-workflow.mjs
+```
+
+No n8n, importe `C:\VSC\TSA_WMQ\n8n\tuya-workflow.json`.
+
+Se preferir criar manualmente:
 
 1. Crie um workflow.
 2. Adicione **Schedule Trigger**.
@@ -75,3 +84,16 @@ No n8n:
 4. Cole o conteudo de `../docs/n8n-tuya-code-node.js`.
 5. Conecte `Schedule Trigger -> Code`.
 6. Execute **Test workflow**.
+
+## 7. Criar workflow de simulacao
+
+Enquanto a Tuya estiver indisponivel, gere e importe o workflow manual:
+
+```powershell
+cd C:\VSC\TSA_WMQ\n8n
+node .\build-simulate-workflow.mjs
+```
+
+No n8n, importe `C:\VSC\TSA_WMQ\n8n\simulate-ingest-workflow.json`.
+
+O workflow **Simular leitura para Firebase** usa **Manual Trigger** e envia uma leitura fake para o mesmo `INGEST_URL`.

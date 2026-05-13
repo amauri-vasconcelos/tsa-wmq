@@ -11,7 +11,7 @@ import {
   Waves,
   Zap,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
   CartesianGrid,
@@ -23,17 +23,23 @@ import {
   YAxis,
 } from "recharts";
 import {
+  collection,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+} from "firebase/firestore";
+import {
   buildEvents,
   formatDate,
   formatTime,
   getMetricStatus,
   metricConfig,
-  readings,
+  readings as mockReadings,
 } from "./data";
-import { hasFirebaseConfig } from "./firebase";
+import { db, hasFirebaseConfig } from "./firebase";
 import type { EventRecord, MetricKey, MetricStatus, WaterReading } from "./types";
 
-const latest = readings[readings.length - 1];
 const periodOptions = [
   { label: "1 dia", days: 1 },
   { label: "1 semana", days: 7 },
@@ -42,6 +48,25 @@ const periodOptions = [
 ];
 const metricKeys = Object.keys(metricConfig) as MetricKey[];
 const defaultChartMetrics: MetricKey[] = ["ph", "tds", "temperature"];
+const firebaseDeviceId =
+  import.meta.env.VITE_FIREBASE_DEVICE_ID || "tuya-yinmik-simulado";
+
+function toReading(id: string, data: Record<string, unknown>): WaterReading {
+  return {
+    id,
+    timestamp:
+      typeof data.timestamp === "string"
+        ? data.timestamp
+        : new Date().toISOString(),
+    ph: Number(data.ph),
+    ec: Number(data.ec),
+    cf: Number(data.cf),
+    tds: Number(data.tds),
+    orp: Number(data.orp),
+    humidity: Number(data.humidity),
+    temperature: Number(data.temperature),
+  };
+}
 
 function statusLabel(status: MetricStatus) {
   if (status === "danger") return "Critico";
@@ -115,8 +140,44 @@ export function App() {
   const [selectedDays, setSelectedDays] = useState(7);
   const [activeMetrics, setActiveMetrics] =
     useState<MetricKey[]>(defaultChartMetrics);
+  const [firebaseReadings, setFirebaseReadings] = useState<WaterReading[]>([]);
+  const [firebaseError, setFirebaseError] = useState<string | null>(null);
+  const dashboardReadings =
+    firebaseReadings.length > 0 ? firebaseReadings : mockReadings;
+  const latest = dashboardReadings[dashboardReadings.length - 1];
+
+  useEffect(() => {
+    if (!db) return undefined;
+
+    const readingsQuery = query(
+      collection(db, "devices", firebaseDeviceId, "readings"),
+      orderBy("createdAt", "desc"),
+      limit(365),
+    );
+
+    return onSnapshot(
+      readingsQuery,
+      (snapshot) => {
+        const nextReadings = snapshot.docs
+          .map((documentSnapshot) =>
+            toReading(documentSnapshot.id, documentSnapshot.data()),
+          )
+          .filter((reading) =>
+            metricKeys.every((metric) => Number.isFinite(reading[metric])),
+          )
+          .reverse();
+
+        setFirebaseReadings(nextReadings);
+        setFirebaseError(null);
+      },
+      (error) => {
+        setFirebaseError(error.message);
+      },
+    );
+  }, []);
+
   const chartData = useMemo(() => {
-    const selectedReadings = readings.slice(-selectedDays);
+    const selectedReadings = dashboardReadings.slice(-selectedDays);
 
     return selectedReadings.map((reading) => ({
       time:
@@ -131,8 +192,10 @@ export function App() {
       humidity: reading.humidity,
       temperature: reading.temperature,
     }));
-  }, [selectedDays]);
-  const events = useMemo(() => buildEvents(readings).slice(0, 20), []);
+  }, [dashboardReadings, selectedDays]);
+  const events = useMemo(() => buildEvents(dashboardReadings).slice(0, 20), [
+    dashboardReadings,
+  ]);
 
   function toggleChartMetric(metric: MetricKey) {
     setActiveMetrics((currentMetrics) => {
@@ -168,7 +231,12 @@ export function App() {
           </span>
           <span className={hasFirebaseConfig ? "online" : "pending"}>
             <Cloud size={18} />
-            Firebase {hasFirebaseConfig ? "configurado" : "pendente"}
+            Firebase{" "}
+            {firebaseReadings.length > 0
+              ? "online"
+              : hasFirebaseConfig
+                ? "configurado"
+                : "pendente"}
           </span>
         </div>
       </header>
@@ -329,6 +397,7 @@ export function App() {
           <div>
             <span className="eyebrow">Firestore</span>
             <h2>Leituras recentes</h2>
+            {firebaseError && <p className="panel-note">{firebaseError}</p>}
           </div>
         </div>
         <div className="table-wrap">
@@ -346,7 +415,7 @@ export function App() {
               </tr>
             </thead>
             <tbody>
-              {readings
+              {dashboardReadings
                 .slice(-10)
                 .reverse()
                 .map((reading) => (

@@ -61,7 +61,20 @@ India: https://openapi.tuyain.com
 
 ## 3. Criar workflow
 
-No n8n:
+Gere o workflow importavel:
+
+```powershell
+cd C:\VSC\TSA_WMQ\n8n
+node .\build-tuya-workflow.mjs
+```
+
+No n8n, importe:
+
+```txt
+C:\VSC\TSA_WMQ\n8n\tuya-workflow.json
+```
+
+Se preferir criar manualmente, no n8n:
 
 1. Crie um novo workflow.
 2. Adicione um node **Schedule Trigger**.
