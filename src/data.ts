@@ -10,22 +10,26 @@ export const readings: WaterReading[] = Array.from({ length: 365 }, (_, index) =
   const daily = Math.cos(index / 7);
   const ph = 7.15 + seasonal * 0.28 + daily * 0.08;
   const tds = 128 + seasonal * 24 + daily * 8;
+  const ec = tds / 500;
+  const cf = ec * 10;
+  const humidity = 61 + Math.sin(index / 18) * 9 + daily * 3;
   const temperature = 25.8 + Math.sin(index / 31) * 2.2 + daily * 0.5;
-  const ec = tds * 2;
 
   return {
     id: `r-${String(index + 1).padStart(3, "0")}`,
     timestamp: timestamp.toISOString(),
     ph: Number(ph.toFixed(2)),
     tds: Math.round(tds),
-    ec: Math.round(ec),
+    ec: Number(ec.toFixed(2)),
+    cf: Number(cf.toFixed(1)),
+    humidity: Number(humidity.toFixed(1)),
     temperature: Number(temperature.toFixed(1)),
     orp: Math.round(292 + seasonal * 28 + daily * 10),
   };
 });
 
 export function getMetricStatus(
-  metric: "ph" | "tds" | "temperature",
+  metric: "ph" | "tds" | "temperature" | "humidity",
   value: number,
 ): MetricStatus {
   if (metric === "ph") {
@@ -37,6 +41,12 @@ export function getMetricStatus(
   if (metric === "tds") {
     if (value > 500) return "danger";
     if (value > 300) return "warning";
+    return "ok";
+  }
+
+  if (metric === "humidity") {
+    if (value < 35 || value > 85) return "danger";
+    if (value < 45 || value > 75) return "warning";
     return "ok";
   }
 

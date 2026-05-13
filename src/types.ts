@@ -4,6 +4,8 @@ export type WaterReading = {
   ph: number;
   tds: number;
   ec: number;
+  cf: number;
+  humidity: number;
   temperature: number;
   orp: number;
 };

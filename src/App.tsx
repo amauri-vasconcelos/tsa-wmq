@@ -5,8 +5,11 @@ import {
   Cloud,
   Droplets,
   Gauge,
+  Percent,
   RadioTower,
   Thermometer,
+  Waves,
+  Zap,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
@@ -70,10 +73,12 @@ function ReadingRow({ reading }: { reading: WaterReading }) {
     <tr>
       <td>{formatDate(reading.timestamp)}</td>
       <td>{reading.ph.toFixed(2)}</td>
+      <td>{reading.ec.toFixed(2)}</td>
+      <td>{reading.cf.toFixed(1)}</td>
       <td>{reading.tds}</td>
-      <td>{reading.ec}</td>
-      <td>{reading.temperature.toFixed(1)} C</td>
       <td>{reading.orp}</td>
+      <td>{reading.humidity.toFixed(1)}</td>
+      <td>{reading.temperature.toFixed(1)} C</td>
     </tr>
   );
 }
@@ -125,6 +130,19 @@ export function App() {
           status={getMetricStatus("ph", latest.ph)}
         />
         <MetricCard
+          icon={<Zap size={22} />}
+          label="EC"
+          value={latest.ec.toFixed(2)}
+          unit="mS/cm"
+          status="ok"
+        />
+        <MetricCard
+          icon={<Waves size={22} />}
+          label="CF"
+          value={latest.cf.toFixed(1)}
+          status="ok"
+        />
+        <MetricCard
           icon={<Gauge size={22} />}
           label="TDS"
           value={String(latest.tds)}
@@ -133,14 +151,21 @@ export function App() {
         />
         <MetricCard
           icon={<Activity size={22} />}
-          label="Condutividade"
-          value={String(latest.ec)}
-          unit="uS/cm"
+          label="ORP"
+          value={String(latest.orp)}
+          unit="mV"
           status="ok"
         />
         <MetricCard
+          icon={<Percent size={22} />}
+          label="Humidity"
+          value={latest.humidity.toFixed(1)}
+          unit="%"
+          status={getMetricStatus("humidity", latest.humidity)}
+        />
+        <MetricCard
           icon={<Thermometer size={22} />}
-          label="Temperatura"
+          label="Temp"
           value={latest.temperature.toFixed(1)}
           unit="C"
           status={getMetricStatus("temperature", latest.temperature)}
@@ -189,6 +214,14 @@ export function App() {
                   name="pH"
                   stroke="#116466"
                   strokeWidth={3}
+                  dot={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="tds"
+                  name="TDS"
+                  stroke="#6f4aa8"
+                  strokeWidth={2}
                   dot={false}
                 />
                 <Line
@@ -242,10 +275,12 @@ export function App() {
               <tr>
                 <th>Data</th>
                 <th>pH</th>
-                <th>TDS</th>
-                <th>EC</th>
-                <th>Temp.</th>
-                <th>ORP</th>
+                <th>EC mS/cm</th>
+                <th>CF</th>
+                <th>TDS ppm</th>
+                <th>ORP mV</th>
+                <th>Humidity %</th>
+                <th>Temp. C</th>
               </tr>
             </thead>
             <tbody>

@@ -31,10 +31,12 @@ devices/{deviceId}
 devices/{deviceId}/readings/{readingId}
   timestamp
   ph
-  tds
   ec
-  temperature
+  cf
+  tds
   orp
+  humidity
+  temperature
   raw
   source
 ```
